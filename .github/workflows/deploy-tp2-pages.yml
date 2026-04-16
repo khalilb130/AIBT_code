@@ -1,0 +1,42 @@
+name: Deploy TP2 interactive page
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "scheduling/tp2_assembly_line_balancing/exercises_interactive_analysis.html"
+      - "scheduling/tp2_assembly_line_balancing/index.html"
+      - ".github/workflows/deploy-tp2-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: scheduling/tp2_assembly_line_balancing
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

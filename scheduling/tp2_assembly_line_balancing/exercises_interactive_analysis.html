@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Restitution interactive - RC-ALBP (exercises.py)</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --muted: #94a3b8;
+      --text: #e2e8f0;
+      --accent: #38bdf8;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+      --line: #334155;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      background: linear-gradient(180deg, #020617, var(--bg));
+      color: var(--text);
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    h1, h2, h3 { margin: 0 0 10px; }
+    p { color: var(--muted); line-height: 1.5; margin: 0 0 12px; }
+    .card {
+      background: color-mix(in srgb, var(--card) 92%, black 8%);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .kpi {
+      background: #0b1220;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .kpi .label { color: var(--muted); font-size: 12px; }
+    .kpi .value { font-size: 24px; font-weight: 700; margin-top: 4px; }
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+    .step-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .step-btn {
+      background: #0b1220;
+      border: 1px solid var(--line);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 7px 12px;
+      cursor: pointer;
+    }
+    .step-btn.active {
+      border-color: var(--accent);
+      color: #bae6fd;
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+    }
+    pre {
+      margin: 0;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+      background: #020617;
+      overflow: auto;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; font-size: 14px; }
+    th { color: #bae6fd; background: #0b1220; }
+    input[type="number"], select {
+      width: 100%;
+      background: #020617;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 6px;
+    }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .btn {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0b1220;
+      color: var(--text);
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    .btn.primary { border-color: var(--accent); color: #bae6fd; }
+    .slider-row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+    #ganttSvg { width: 100%; height: 320px; border: 1px solid var(--line); border-radius: 10px; background: #020617; }
+    .resource-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+    .resource-card { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: #0b1220; }
+    .bar-row { display: grid; grid-template-columns: 80px 1fr auto; gap: 8px; align-items: center; margin: 8px 0; }
+    .bar {
+      width: 100%;
+      height: 12px;
+      border-radius: 999px;
+      background: #1e293b;
+      overflow: hidden;
+      border: 1px solid #334155;
+    }
+    .fill { height: 100%; background: #38bdf8; }
+    .fill.bad { background: #ef4444; }
+    code { color: #7dd3fc; }
+    ul { margin: 8px 0 12px 18px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card">
+      <h1>Restitution interactive - <code>exercises.py</code></h1>
+      <p>Cette page explique le solveur CP-SAT pour le problème <strong>RC-ALBP</strong> (affectation + ordonnancement + ressources par station) et analyse la solution trouvée sur l'instance <code>create_precedence_example()</code>.</p>
+      <div class="kpis" id="globalKpis"></div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>1) Lecture guidée du code</h2>
+        <div class="step-nav" id="stepNav"></div>
+        <h3 id="stepTitle"></h3>
+        <p id="stepDesc"></p>
+        <ul id="stepPoints"></ul>
+        <pre id="stepCode"></pre>
+      </section>
+
+      <section class="card">
+        <h2>2) Analyse critique de la modélisation</h2>
+        <p><strong>Point fort :</strong> l'utilisation d'<em>optional intervals</em> par couple (tâche, station) est la bonne technique CP-SAT pour imposer des contraintes de ressources dépendantes d'une affectation.</p>
+        <p><strong>Point subtil :</strong> pour une précédence entre stations différentes, le modèle impose seulement <code>station[pred] ≤ station[succ]</code>, pas <code>end[pred] ≤ start[succ]</code>. On modélise donc un flux de ligne (régime cyclique), pas un mono-produit strict.</p>
+        <p><strong>Conséquence observée :</strong> certaines tâches de <code>Station_B</code> peuvent commencer à <code>t=0</code> même si leurs prédécesseurs sont sur <code>Station_A</code>, ce qui reste faisable dans cette logique de pipeline.</p>
+        <p><strong>Si besoin métier différent :</strong> ajouter une contrainte temporelle globale sur toutes les précédences transformerait le modèle vers un flux mono-produit.</p>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>3) Laboratoire interactif (modifier la solution et observer les pénalités)</h2>
+      <p>Le calcul ci-dessous reproduit la logique de <code>problem.evaluate()</code> : pénalités de précédence, ressources, tâches non planifiées, et cycle time.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Tâche</th>
+              <th>Durée</th>
+              <th>Station</th>
+              <th>Start</th>
+              <th>End</th>
+            </tr>
+          </thead>
+          <tbody id="controlsBody"></tbody>
+        </table>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="btnReset">Recharger la meilleure solution</button>
+        <button class="btn" id="btnInvalid">Créer un scénario invalide</button>
+      </div>
+      <div class="kpis" id="evalKpis"></div>
+    </section>
+
+    <section class="card">
+      <h2>4) Timeline et charge ressources</h2>
+      <div class="slider-row">
+        <span>Temps</span>
+        <input id="timeSlider" type="range" min="0" max="15" step="1" value="0" />
+        <strong id="timeLabel">t = 0</strong>
+      </div>
+      <div style="margin-top: 10px;">
+        <svg id="ganttSvg" viewBox="0 0 1000 320" preserveAspectRatio="none"></svg>
+      </div>
+      <div class="resource-grid" id="resourceGrid" style="margin-top: 12px;"></div>
+    </section>
+  </div>
+
+  <script>
+    const problem = {
+      tasks: ["Prepare", "Assemble", "Cut", "Join", "Test", "Package"],
+      taskTimes: { Prepare: 5, Assemble: 3, Cut: 4, Join: 3, Test: 2, Package: 6 },
+      precedences: [
+        ["Prepare", "Assemble"],
+        ["Prepare", "Cut"],
+        ["Assemble", "Test"],
+        ["Assemble", "Join"],
+        ["Cut", "Join"],
+        ["Test", "Package"],
+        ["Join", "Package"]
+      ],
+      stations: ["Station_A", "Station_B"],
+      resources: ["Worker", "Tool"],
+      stationResources: {
+        Station_A: { Worker: 3, Tool: 2 },
+        Station_B: { Worker: 2, Tool: 3 }
+      },
+      taskResources: {
+        Prepare: { Worker: 1, Tool: 0 },
+        Assemble: { Worker: 0, Tool: 1 },
+        Cut: { Worker: 1, Tool: 1 },
+        Join: { Worker: 0, Tool: 1 },
+        Test: { Worker: 1, Tool: 1 },
+        Package: { Worker: 2, Tool: 1 }
+      }
+    };
+
+    const bestSolution = {
+      assignment: {
+        Assemble: "Station_A",
+        Cut: "Station_A",
+        Join: "Station_B",
+        Package: "Station_B",
+        Prepare: "Station_A",
+        Test: "Station_B"
+      },
+      schedule: { Assemble: 5, Cut: 5, Join: 0, Package: 3, Prepare: 0, Test: 0 },
+      cycleTime: 9
+    };
+
+    let state = JSON.parse(JSON.stringify(bestSolution));
+    let currentEval = null;
+
+    const steps = [
+      {
+        label: "Horizon",
+        title: "Étape 1 - Horizon",
+        desc: "Le modèle fixe un majorant simple du cycle time : somme des durées.",
+        points: [
+          "Garantie de bornes valides pour starts/ends.",
+          "Pas toujours serré, mais sûr et rapide à construire."
+        ],
+        code: `horizon = sum(self.problem.task_times.values())`
+      },
+      {
+        label: "Affectation",
+        title: "Étape 2 - Variables d'affectation",
+        desc: "Chaque tâche reçoit un index de station (variable entière).",
+        points: [
+          "Domaines: [0, nb_stations-1].",
+          "Maps station<->index pour reconstruire la solution."
+        ],
+        code: `self.variables["task_station"][task] = self.cp_model.NewIntVar(
+  0, len(self.problem.stations)-1, f"task_station_{task}"
+)`
+      },
+      {
+        label: "Temps",
+        title: "Étape 3 - Variables temporelles",
+        desc: "Le solveur crée start, end et interval pour chaque tâche.",
+        points: [
+          "La durée est constante (task_times[task]).",
+          "L'interval est utilisé par les contraintes cumulatives."
+        ],
+        code: `start = self.cp_model.NewIntVar(0, horizon, f"start_{task}")
+end = self.cp_model.NewIntVar(0, horizon, f"end_{task}")
+interval = self.cp_model.NewIntervalVar(start, duration, end, f"interval_{task}")`
+      },
+      {
+        label: "Précédence stations",
+        title: "Étape 4 - Précédence station",
+        desc: "Le flux est orienté le long de la ligne: station[pred] ≤ station[succ].",
+        points: [
+          "Empêche de revenir en arrière dans les stations.",
+          "Ne force pas de délai temporel entre stations différentes."
+        ],
+        code: `self.cp_model.Add(task_station[pred] <= task_station[succ])`
+      },
+      {
+        label: "Précédence temps",
+        title: "Étape 5 - Précédence temporelle conditionnelle",
+        desc: "Si deux tâches liées sont sur la même station, alors end[pred] ≤ start[succ].",
+        points: [
+          "Booléen same_station + OnlyEnforceIf.",
+          "Très idiomatique en CP-SAT pour les contraintes conditionnelles."
+        ],
+        code: `same_station = self.cp_model.NewBoolVar(...)
+self.cp_model.Add(task_station[pred] == task_station[succ]).OnlyEnforceIf(same_station)
+self.cp_model.Add(ends[pred] <= starts[succ]).OnlyEnforceIf(same_station)`
+      },
+      {
+        label: "Ressources",
+        title: "Étape 6 - Ressources par station (optional intervals)",
+        desc: "Pour chaque couple (tâche, station), un intervalle optionnel est créé.",
+        points: [
+          "Présence activée ssi la tâche est affectée à la station.",
+          "Puis AddCumulative(intervals, demands, capacity) par station et ressource."
+        ],
+        code: `opt = self.cp_model.NewOptionalIntervalVar(start, dur, end, is_on_station, ...)
+self.cp_model.AddCumulative(intervals_station_resource, demands, capacity)`
+      },
+      {
+        label: "Objectif + sortie",
+        title: "Étape 7 - Makespan + extraction de solution",
+        desc: "Le cycle time est modélisé comme le max des fins, puis minimisé.",
+        points: [
+          "AddMaxEquality(makespan, ends).",
+          "retrieve_solution lit les valeurs et reconstruit RCALBPSolution."
+        ],
+        code: `makespan = self.cp_model.NewIntVar(0, horizon, "makespan")
+self.cp_model.AddMaxEquality(makespan, list(ends.values()))
+self.cp_model.Minimize(makespan)`
+      }
+    ];
+
+    function evaluate(sol) {
+      let penaltyPrecedence = 0;
+      let penaltyResource = 0;
+      let penaltyUnscheduled = 0;
+      const stationMakespans = {};
+      for (const station of problem.stations) stationMakespans[station] = 0;
+
+      if (Object.keys(sol.assignment).length !== problem.tasks.length) {
+        penaltyUnscheduled += problem.tasks.length - Object.keys(sol.assignment).length;
+      }
+
+      for (const [pred, succ] of problem.precedences) {
+        const sp = sol.assignment[pred];
+        const ss = sol.assignment[succ];
+        if (!sp || !ss) {
+          penaltyPrecedence += 1;
+          continue;
+        }
+        if (problem.stations.indexOf(sp) > problem.stations.indexOf(ss)) {
+          penaltyPrecedence += 1;
+          continue;
+        }
+        if (sp === ss) {
+          const ep = (sol.schedule[pred] ?? 0) + problem.taskTimes[pred];
+          const st = sol.schedule[succ] ?? 0;
+          if (ep > st) penaltyPrecedence += 1;
+        }
+      }
+
+      for (const station of problem.stations) {
+        const stationTasks = problem.tasks.filter(t => sol.assignment[t] === station);
+        if (!stationTasks.length) continue;
+
+        for (const t of stationTasks) {
+          if (sol.schedule[t] == null || Number.isNaN(sol.schedule[t])) penaltyUnscheduled += 1;
+        }
+
+        let maxEnd = 0;
+        for (const t of stationTasks) {
+          const st = Number(sol.schedule[t] ?? 0);
+          maxEnd = Math.max(maxEnd, st + problem.taskTimes[t]);
+        }
+        stationMakespans[station] = maxEnd;
+
+        const events = [];
+        for (const t of stationTasks) {
+          const st = Number(sol.schedule[t] ?? 0);
+          const dur = problem.taskTimes[t];
+          if (dur > 0) {
+            events.push([st, "start", t]);
+            events.push([st + dur, "end", t]);
+          }
+        }
+        events.sort((a, b) => a[0] - b[0] || (a[1] === "end" ? -1 : 1));
+
+        const active = new Set();
+        for (const [, type, task] of events) {
+          if (type === "start") {
+            active.add(task);
+            for (const r of problem.resources) {
+              let usage = 0;
+              for (const t of active) usage += problem.taskResources[t][r] || 0;
+              const cap = problem.stationResources[station][r] || 0;
+              if (usage > cap) penaltyResource += (usage - cap);
+            }
+          } else {
+            active.delete(task);
+          }
+        }
+      }
+
+      const cycleTime = Math.max(...Object.values(stationMakespans), 0);
+      return { cycleTime, penaltyPrecedence, penaltyResource, penaltyUnscheduled };
+    }
+
+    function activeTasksAtTime(station, time) {
+      return problem.tasks.filter(task => {
+        if (state.assignment[task] !== station) return false;
+        const st = Number(state.schedule[task] ?? 0);
+        const en = st + problem.taskTimes[task];
+        return st <= time && time < en;
+      });
+    }
+
+    function usageAtTime(station, time) {
+      const active = activeTasksAtTime(station, time);
+      const usage = {};
+      for (const r of problem.resources) {
+        usage[r] = active.reduce((acc, t) => acc + (problem.taskResources[t][r] || 0), 0);
+      }
+      return usage;
+    }
+
+    function renderGlobalKpis() {
+      const html = `
+        <div class="kpi"><div class="label">Instance</div><div class="value">6 tâches / 2 stations</div></div>
+        <div class="kpi"><div class="label">Solveur</div><div class="value">CP-SAT (OR-Tools)</div></div>
+        <div class="kpi"><div class="label">Meilleur cycle time</div><div class="value">${bestSolution.cycleTime}</div></div>
+        <div class="kpi"><div class="label">Validité</div><div class="value ok">Faisable</div></div>
+      `;
+      document.getElementById("globalKpis").innerHTML = html;
+    }
+
+    function renderStep(index) {
+      const step = steps[index];
+      document.querySelectorAll(".step-btn").forEach((b, i) => b.classList.toggle("active", i === index));
+      document.getElementById("stepTitle").textContent = step.title;
+      document.getElementById("stepDesc").textContent = step.desc;
+      document.getElementById("stepPoints").innerHTML = step.points.map(p => `<li>${p}</li>`).join("");
+      document.getElementById("stepCode").textContent = step.code;
+    }
+
+    function initStepNav() {
+      const nav = document.getElementById("stepNav");
+      nav.innerHTML = "";
+      steps.forEach((step, i) => {
+        const btn = document.createElement("button");
+        btn.className = "step-btn";
+        btn.textContent = step.label;
+        btn.addEventListener("click", () => renderStep(i));
+        nav.appendChild(btn);
+      });
+      renderStep(0);
+    }
+
+    function renderControls() {
+      const body = document.getElementById("controlsBody");
+      body.innerHTML = "";
+      for (const task of problem.tasks) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${task}</strong></td>
+          <td>${problem.taskTimes[task]}</td>
+          <td>
+            <select data-task="${task}" data-type="station">
+              ${problem.stations.map(s => `<option value="${s}" ${state.assignment[task] === s ? "selected" : ""}>${s}</option>`).join("")}
+            </select>
+          </td>
+          <td><input data-task="${task}" data-type="start" type="number" min="0" max="30" value="${state.schedule[task] ?? 0}" /></td>
+          <td id="end-${task}">${(state.schedule[task] ?? 0) + problem.taskTimes[task]}</td>
+        `;
+        body.appendChild(tr);
+      }
+
+      body.querySelectorAll("select,input").forEach(el => {
+        el.addEventListener("input", () => {
+          const task = el.dataset.task;
+          const type = el.dataset.type;
+          if (type === "station") state.assignment[task] = el.value;
+          if (type === "start") state.schedule[task] = Math.max(0, Number(el.value || 0));
+          document.getElementById(`end-${task}`).textContent = (state.schedule[task] ?? 0) + problem.taskTimes[task];
+          updateAll();
+        });
+      });
+    }
+
+    function renderEvalKpis() {
+      const e = currentEval;
+      const valid = e.penaltyPrecedence === 0 && e.penaltyResource === 0 && e.penaltyUnscheduled === 0;
+      document.getElementById("evalKpis").innerHTML = `
+        <div class="kpi"><div class="label">Cycle time</div><div class="value">${e.cycleTime}</div></div>
+        <div class="kpi"><div class="label">Pénalité précédence</div><div class="value ${e.penaltyPrecedence ? "bad" : "ok"}">${e.penaltyPrecedence}</div></div>
+        <div class="kpi"><div class="label">Pénalité ressources</div><div class="value ${e.penaltyResource ? "bad" : "ok"}">${e.penaltyResource}</div></div>
+        <div class="kpi"><div class="label">Pénalité non planifiées</div><div class="value ${e.penaltyUnscheduled ? "bad" : "ok"}">${e.penaltyUnscheduled}</div></div>
+        <div class="kpi"><div class="label">Faisabilité</div><div class="value ${valid ? "ok" : "bad"}">${valid ? "Valide" : "Invalide"}</div></div>
+      `;
+    }
+
+    function computeLanes(tasks) {
+      const lanes = [];
+      const result = {};
+      for (const t of tasks.sort((a, b) => a.start - b.start)) {
+        let lane = 0;
+        while (lane < lanes.length && t.start < lanes[lane]) lane++;
+        if (lane === lanes.length) lanes.push(t.end);
+        else lanes[lane] = t.end;
+        result[t.task] = lane;
+      }
+      return { laneByTask: result, laneCount: Math.max(1, lanes.length) };
+    }
+
+    function renderGantt() {
+      const svg = document.getElementById("ganttSvg");
+      const t = Number(document.getElementById("timeSlider").value);
+      const maxEnd = Math.max(currentEval.cycleTime, ...problem.tasks.map(task => (state.schedule[task] ?? 0) + problem.taskTimes[task]), 1);
+      const width = 1000;
+      const leftPad = 130;
+      const rightPad = 20;
+      const stationGap = 20;
+      const laneH = 24;
+      let y = 20;
+
+      const stationData = {};
+      for (const s of problem.stations) {
+        const tasks = problem.tasks
+          .filter(task => state.assignment[task] === s)
+          .map(task => ({ task, start: state.schedule[task] ?? 0, end: (state.schedule[task] ?? 0) + problem.taskTimes[task] }));
+        const laneInfo = computeLanes(tasks);
+        stationData[s] = { tasks, ...laneInfo, yStart: y };
+        y += laneInfo.laneCount * laneH + stationGap;
+      }
+      const totalHeight = Math.max(320, y + 20);
+      svg.setAttribute("viewBox", `0 0 ${width} ${totalHeight}`);
+
+      const xScale = (width - leftPad - rightPad) / maxEnd;
+      const color = ["#7dd3fc", "#86efac", "#fca5a5", "#c4b5fd", "#fdba74", "#f9a8d4"];
+      let out = "";
+
+      for (let tick = 0; tick <= maxEnd; tick++) {
+        const x = leftPad + tick * xScale;
+        out += `<line x1="${x}" y1="8" x2="${x}" y2="${totalHeight - 10}" stroke="#1e293b" stroke-width="${tick % 5 === 0 ? 1.3 : 0.6}" />`;
+        if (tick % 2 === 0) out += `<text x="${x}" y="18" fill="#94a3b8" font-size="10" text-anchor="middle">${tick}</text>`;
+      }
+
+      let i = 0;
+      for (const s of problem.stations) {
+        const st = stationData[s];
+        out += `<text x="12" y="${st.yStart + 16}" fill="#bae6fd" font-size="13" font-weight="700">${s}</text>`;
+        for (const taskObj of st.tasks) {
+          const lane = st.laneByTask[taskObj.task] ?? 0;
+          const yy = st.yStart + lane * laneH;
+          const x = leftPad + taskObj.start * xScale;
+          const w = Math.max(4, (taskObj.end - taskObj.start) * xScale);
+          const active = taskObj.start <= t && t < taskObj.end;
+          const fill = active ? "#facc15" : color[i % color.length];
+          const stroke = active ? "#ef4444" : "#0f172a";
+          out += `<rect x="${x}" y="${yy}" width="${w}" height="${laneH - 4}" fill="${fill}" stroke="${stroke}" stroke-width="${active ? 2 : 1}" rx="4" />`;
+          out += `<text x="${x + w / 2}" y="${yy + 14}" text-anchor="middle" font-size="11" fill="#0f172a" font-weight="700">${taskObj.task}</text>`;
+          i++;
+        }
+      }
+
+      const tx = leftPad + t * xScale;
+      out += `<line x1="${tx}" y1="8" x2="${tx}" y2="${totalHeight - 10}" stroke="#ef4444" stroke-width="2" />`;
+      svg.innerHTML = out;
+    }
+
+    function renderResources() {
+      const grid = document.getElementById("resourceGrid");
+      const t = Number(document.getElementById("timeSlider").value);
+      let html = "";
+      for (const station of problem.stations) {
+        const usage = usageAtTime(station, t);
+        const active = activeTasksAtTime(station, t);
+        html += `<div class="resource-card"><h3>${station}</h3><p>Tâches actives: ${active.length ? active.join(", ") : "aucune"}</p>`;
+        for (const r of problem.resources) {
+          const u = usage[r];
+          const c = problem.stationResources[station][r];
+          const ratio = c > 0 ? Math.min(100, (u / c) * 100) : 0;
+          html += `
+            <div class="bar-row">
+              <span>${r}</span>
+              <div class="bar"><div class="fill ${u > c ? "bad" : ""}" style="width:${ratio}%"></div></div>
+              <strong class="${u > c ? "bad" : "ok"}">${u}/${c}</strong>
+            </div>
+          `;
+        }
+        html += "</div>";
+      }
+      grid.innerHTML = html;
+    }
+
+    function updateSliderRange() {
+      const maxEnd = Math.max(currentEval.cycleTime * 2, ...problem.tasks.map(t => (state.schedule[t] ?? 0) + problem.taskTimes[t]), 10);
+      const slider = document.getElementById("timeSlider");
+      slider.max = String(Math.ceil(maxEnd));
+      if (Number(slider.value) > Number(slider.max)) slider.value = slider.max;
+    }
+
+    function updateAll() {
+      currentEval = evaluate(state);
+      renderEvalKpis();
+      updateSliderRange();
+      const t = document.getElementById("timeSlider").value;
+      document.getElementById("timeLabel").textContent = `t = ${t}`;
+      renderGantt();
+      renderResources();
+    }
+
+    document.getElementById("timeSlider").addEventListener("input", (e) => {
+      document.getElementById("timeLabel").textContent = `t = ${e.target.value}`;
+      renderGantt();
+      renderResources();
+    });
+
+    document.getElementById("btnReset").addEventListener("click", () => {
+      state = JSON.parse(JSON.stringify(bestSolution));
+      renderControls();
+      updateAll();
+    });
+
+    document.getElementById("btnInvalid").addEventListener("click", () => {
+      state = JSON.parse(JSON.stringify(bestSolution));
+      state.assignment.Prepare = "Station_B";
+      state.assignment.Package = "Station_A";
+      state.schedule.Package = 0;
+      renderControls();
+      updateAll();
+    });
+
+    renderGlobalKpis();
+    initStepNav();
+    renderControls();
+    updateAll();
+  </script>
+</body>
+</html>
